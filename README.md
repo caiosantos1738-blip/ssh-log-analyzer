@@ -246,6 +246,24 @@ The example uses a pseudonymized IP address and simulated authentication events.
 - Generate visual security dashboards.
 - Expand automated test coverage.
 
+## Investigation Playbook
+
+This project includes a security investigation playbook
+designed for SOC Analysts and Blue Team professionals.
+
+The playbook covers:
+
+- SSH Brute Force investigation.
+- SSH Password Spraying investigation.
+- Failed logins followed by successful authentication.
+- Evidence collection and preservation.
+- Incident classification.
+- MITRE ATT&CK mapping.
+
+Full documentation:
+
+[SSH Security Investigation Playbook](docs/INVESTIGATION_PLAYBOOK.md)
+
 ## Disclaimer
 
 This project is intended for educational purposes and cybersecurity portfolio development. Detection results are based on heuristic rules and should be investigated before being treated as confirmed security incidents.
