@@ -54,6 +54,12 @@ class IntegrationTests(unittest.TestCase):
             self.assertEqual(alerts[0]["event_count"], 5)
             self.assertEqual(alerts[0]["source_ip"], "IP_001")
 
+            self.assertEqual(alerts[0]["risk_score"], 50)
+            self.assertEqual(alerts[0]["risk_level"], "HIGH")
+
+            self.assertEqual(rows[0]["risk_score"], "50")
+            self.assertEqual(rows[0]["risk_level"], "HIGH")
+            self.assertEqual(rows[0]["severity"], "HIGH")
 
 if __name__ == "__main__":
     unittest.main()

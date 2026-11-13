@@ -1,10 +1,10 @@
-
 import csv
 import json
 from pathlib import Path
 
 from src.parser import parse_file
 from src.detection import run_detections
+from src.risk import enrich_alerts
 
 
 # Configuration
@@ -41,8 +41,24 @@ def analyze():
         print("[INFO] No SSH authentication events found.")
         return
 
-    # Run security detection rules
+    # Run detection rules and calculate risk scores
     alerts = run_detections(events)
+    alerts = enrich_alerts(alerts)
+
+    # Get the highest risk score for each source IP
+    risk_by_ip = {}
+
+    for alert in alerts:
+        source_ip = alert["source_ip"]
+
+        if (
+            source_ip not in risk_by_ip
+            or alert["risk_score"] > risk_by_ip[source_ip]["risk_score"]
+        ):
+            risk_by_ip[source_ip] = {
+                "risk_score": alert["risk_score"],
+                "risk_level": alert["risk_level"]
+            }
 
     # Anonymization mappings
     username_map = {}
@@ -54,7 +70,9 @@ def analyze():
         "event",
         "username",
         "source_ip",
-        "severity"
+        "severity",
+        "risk_score",
+        "risk_level"
     ]
 
     with OUTPUT_CSV.open(
@@ -62,11 +80,6 @@ def analyze():
     ) as file:
         writer = csv.DictWriter(file, fieldnames=fields)
         writer.writeheader()
-
-        alert_ips = {
-            alert["source_ip"]
-            for alert in alerts
-        }
 
         for event in events:
             original_ip = event["source_ip"]
@@ -77,23 +90,27 @@ def analyze():
                 original_username, username_map, "USER"
             )
 
-            event_type = event["event"]
+            risk = risk_by_ip.get(original_ip)
 
-            if original_ip in alert_ips:
-                severity = "HIGH"
-            elif event_type == "FAILED_LOGIN":
-                severity = "MEDIUM"
+            if risk:
+                severity = risk["risk_level"]
+                risk_score = risk["risk_score"]
+                risk_level = risk["risk_level"]
             else:
                 severity = "INFO"
+                risk_score = 0
+                risk_level = "LOW"
 
             writer.writerow({
                 "timestamp": serialize_timestamp(
                     event["timestamp"]
                 ),
-                "event": event_type,
+                "event": event["event"],
                 "username": safe_username,
                 "source_ip": safe_ip,
-                "severity": severity
+                "severity": severity,
+                "risk_score": risk_score,
+                "risk_level": risk_level
             })
 
     # Create sanitized JSON alerts
@@ -103,6 +120,8 @@ def analyze():
         safe_alerts.append({
             "rule_id": alert["rule_id"],
             "severity": alert["severity"],
+            "risk_score": alert["risk_score"],
+            "risk_level": alert["risk_level"],
             "description": alert["description"],
             "source_ip": anonymize(
                 alert["source_ip"], ip_map, "IP"
@@ -126,6 +145,7 @@ def analyze():
             indent=4,
             ensure_ascii=False
         )
+
     # Statistics
     failed_count = sum(
         event["event"] == "FAILED_LOGIN"
@@ -146,6 +166,7 @@ def analyze():
     print(f"IPs anonymized: {len(ip_map)}")
     print(f"\nCSV report: {OUTPUT_CSV}")
     print(f"JSON alerts: {OUTPUT_JSON}")
+    print("[OK] Risk scoring completed.")
     print("[OK] Exported data has been anonymized.")
 
 
